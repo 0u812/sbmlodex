@@ -51,10 +51,10 @@ class Accumulator:
 
     def addReaction(self, reaction, stoich):
         rid = reaction.getId()
-        if rid in reaction_map:
-            reaction_map[rid]['stoich'] += stoich
+        if rid in self.reaction_map:
+            self.reaction_map[rid]['stoich'] += stoich
         else:
-            reaction_map[rid] = {
+            self.reaction_map[rid] = {
                 'reaction': reaction,
                 'formula': self.getFormula(reaction),
                 'stoich': stoich,
@@ -62,17 +62,30 @@ class Accumulator:
             self.reactions.append(rid)
 
     def getFormula(self, reaction):
-        return reaction.getFormula()
+        return reaction.getKineticLaw().getFormula()
 
     def toString(self):
+        lhs = 'd{}/dt'.format(self.species_id)
         terms = []
         for rid in self.reactions:
             if self.reaction_map[rid]['stoich'] != 1:
                 stoich = ''
             else:
-                stoich = str(self.reaction_map[rid]['stoich']) + '*'
-            terms.append(stoich + self.reaction_map[rid]['formula'])
-        return ' + '.join(terms)
+                stoich = str(abs(self.reaction_map[rid]['stoich'])) + '*'
+
+            if len(terms) > 0:
+                if self.reaction_map[rid]['stoich'] < 0:
+                    op = ' - '
+                else:
+                    op = ' + '
+            else:
+                if self.reaction_map[rid]['stoich'] < 0:
+                    op = '-'
+                else:
+                    op = ''
+            terms.append(op + stoich + self.reaction_map[rid]['formula'])
+        rhs = ''.join(terms)
+        return lhs + ' = ' + rhs
 
 class ODEExtractor:
     def __init__(self, sbml_doc):
@@ -95,18 +108,18 @@ class ODEExtractor:
         self.accumulator_list = []
 
         def reactionParticipant(participant, stoich):
-            stoich = 1 if is_reactant else -1
-            if participant.isSetStoichimetry():
+            stoich_sign = 1
+            if stoich < 0:
+                stoich_sign = -1
+            if participant.isSetStoichiometry():
                 stoich = participant.getStoichiometry()
-            elif isSetStoichimetryMath():
+            elif isSetStoichiometryMath():
                 raise RuntimeError('Stoichiometry math not supported')
-            self.accumulators[participant.getSpecies()].addReaction(r, stoich)
+            self.accumulators[participant.getSpecies()].addReaction(r, stoich_sign*stoich)
 
-        def newReactant():
-            return lambda p: reactionParticipant(p, 1)
+        newReactant = lambda p: reactionParticipant(p, 1)
 
-        def newProduct():
-            return lambda p: reactionParticipant(p, -1)
+        newProduct  = lambda p: reactionParticipant(p, -1)
 
         for s in (self.model.getSpecies(i) for i in range(self.model.getNumSpecies())):
             self.species_map[s.getId()] = s
@@ -116,12 +129,12 @@ class ODEExtractor:
                 self.species_symbol_map[s.getId()] = s.getId()
             a = Accumulator(s.getId())
             self.accumulators[s.getId()] = a
-            self.accumulator_list = a
+            self.accumulator_list.append(a)
 
         for r in (self.model.getReaction(i) for i in range(self.model.getNumReactions())):
-            for reactant in (r.getReactant(i) for i in range(r.getNumReactants)):
+            for reactant in (r.getReactant(i) for i in range(r.getNumReactants())):
                 newReactant(reactant)
-            for product in (r.getProduct(i) for i in range(r.getNumProducts)):
+            for product in (r.getProduct(i) for i in range(r.getNumProducts())):
                 newProduct(product)
 
     def toString(self):
