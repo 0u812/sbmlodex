@@ -70,7 +70,7 @@ class Accumulator:
         lhs = 'd{}/dt'.format(self.species_id)
         terms = []
         for rid in self.reactions:
-            if self.reaction_map[rid]['stoich'] != 1:
+            if abs(self.reaction_map[rid]['stoich']) == 1:
                 stoich = ''
             else:
                 stoich = str(abs(self.reaction_map[rid]['stoich'])) + '*'
@@ -119,9 +119,9 @@ class ODEExtractor:
                 raise RuntimeError('Stoichiometry math not supported')
             self.accumulators[participant.getSpecies()].addReaction(r, stoich_sign*stoich)
 
-        newReactant = lambda p: reactionParticipant(p, 1)
+        newReactant = lambda p: reactionParticipant(p, -1)
 
-        newProduct  = lambda p: reactionParticipant(p, -1)
+        newProduct  = lambda p: reactionParticipant(p, 1)
 
         for s in (self.model.getSpecies(i) for i in range(self.model.getNumSpecies())):
             self.species_map[s.getId()] = s
