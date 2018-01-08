@@ -58,6 +58,7 @@ class Accumulator:
         else:
             self.reaction_map[rid] = {
                 'reaction': reaction,
+                'id': rid,
                 'formula': self.getFormula(reaction),
                 'stoich': stoich,
             }
@@ -66,7 +67,7 @@ class Accumulator:
     def getFormula(self, reaction):
         return reaction.getKineticLaw().getFormula()
 
-    def toString(self):
+    def toString(self, use_ids=False):
         lhs = 'd{}/dt'.format(self.species_id)
         terms = []
         for rid in self.reactions:
@@ -85,7 +86,14 @@ class Accumulator:
                     op = '-'
                 else:
                     op = ''
-            terms.append(op + stoich + self.reaction_map[rid]['formula'])
+
+            if use_ids:
+                expr = 'v' + self.reaction_map[rid]['id']
+            else:
+                expr = self.reaction_map[rid]['formula']
+
+            terms.append(op + stoich + expr)
+
         rhs = ''.join(terms)
         return lhs + ' = ' + rhs
 
@@ -104,6 +112,7 @@ class ODEExtractor:
         self.species_map = {}
         self.species_symbol_map = {}
         self.use_species_names = False
+        self.use_ids = True
 
         from collections import defaultdict
         self.accumulators = {}
@@ -142,5 +151,11 @@ class ODEExtractor:
     def toString(self):
         r = ''
         for a in self.accumulator_list:
-            r += a.toString() + '\n'
+            r += a.toString(use_ids=self.use_ids) + '\n'
+
+        if self.use_ids:
+            r += '\n'
+            for rx in (self.model.getReaction(i) for i in range(self.model.getNumReactions())):
+                r += rx.getId() + ': ' + rx.getKineticLaw().getFormula() + '\n'
+
         return r
