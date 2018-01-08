@@ -115,7 +115,7 @@ class ODEExtractor:
                 stoich_sign = -1
             if participant.isSetStoichiometry():
                 stoich = participant.getStoichiometry()
-            elif isSetStoichiometryMath():
+            elif participant.isSetStoichiometryMath():
                 raise RuntimeError('Stoichiometry math not supported')
             self.accumulators[participant.getSpecies()].addReaction(r, stoich_sign*stoich)
 
